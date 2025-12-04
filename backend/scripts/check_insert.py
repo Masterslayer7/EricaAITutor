@@ -1,7 +1,7 @@
 import sqlite3
 import sqlite_vec
 
-DB_PATH = "vector.db"
+DB_PATH = "backend/data/vector.db"
 
 conn = sqlite3.connect(DB_PATH)
 conn.enable_load_extension(True)

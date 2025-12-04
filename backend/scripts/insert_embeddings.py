@@ -3,7 +3,7 @@ import json
 import sqlite3
 import sqlite_vec
 
-DB_PATH = "vector.db"
+DB_PATH = "backend/data/vector.db"
 EMBED_DIR = "embeddings"
 
 # Connect
