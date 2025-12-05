@@ -2,3 +2,4 @@
 venv/
 embeddings/
 embedded_json/
+scraped_json/
