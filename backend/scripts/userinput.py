@@ -7,7 +7,7 @@ from openai import OpenAI
 # CONFIGURATION 
 load_dotenv()
 client = OpenAI() # Uses OPENAI_API_KEY from .env
-GRAPH_PATH = "./rebeca_graph_storage/graph_chunk_entity_relation.graphml"
+GRAPH_PATH = "/home/yugp/projects/EricaAITutor/backend/data/erica_graph_storage/graph_chunk_entity_relation.graphml"
 
 # NODE MAPPING (Query -> Entry Point) 
 def find_concept_node(graph, query):
