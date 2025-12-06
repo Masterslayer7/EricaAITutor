@@ -16,11 +16,14 @@ def find_concept_node(graph, query):
     Rationale: In a specialized educational graph, node names (Concepts) 
     are usually distinct technical terms. Keyword matching is precise and low-latency.
     """
-    query_upper = query.upper()
+    
+    print(" -- Finding concept node -- ")
+    query_upper = query.upper() # Makes query capital
     best_match = None
     best_score = 0
 
     for node in graph.nodes():
+        
         # Simple Jaccard/Overlap matching
         if node in query_upper or query_upper in node:
             score = len(node) # Prefer longer, more specific matches
@@ -28,6 +31,7 @@ def find_concept_node(graph, query):
                 best_score = score
                 best_match = node
     
+    print(f"Here is the best match Node: {best_match}")
     return best_match
 
 #  SUBGRAPH SELECTION (The Core Logic) 
@@ -43,7 +47,9 @@ def get_pedagogical_subgraph(graph, target_node):
     """
     context_nodes = set([target_node])
     
-    # A. Scaffolding (Find Prerequisites)
+    
+    
+    # Scaffolding (Find Prerequisites)
     # Walk backwards: Who is a prereq of the target?
     prereqs = []
     try:
@@ -152,7 +158,7 @@ if __name__ == "__main__":
     G = nx.read_graphml(GRAPH_PATH)
     print(f" Loaded {G.number_of_nodes()} concepts.")
 
-    # Get Query
+    # Hard coded Query
     user_query = "Explain Automated Reasoning" 
     print(f"\n User Query: {user_query}")
 
