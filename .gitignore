@@ -3,3 +3,4 @@ venv/
 embeddings/
 embedded_json/
 scraped_json/
+erica_graph_storage/
