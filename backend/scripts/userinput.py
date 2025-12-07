@@ -7,7 +7,11 @@ from openai import OpenAI
 # CONFIGURATION 
 load_dotenv()
 client = OpenAI() # Uses OPENAI_API_KEY from .env
-GRAPH_PATH = "/home/yugp/projects/EricaAITutor/backend/data/erica_graph_storage/graph_chunk_entity_relation.graphml"
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_ROOT = os.path.dirname(SCRIPT_DIR)
+WORKING_DIR = os.path.join(BACKEND_ROOT, "data", "erica_graph_storage")
+GRAPH_PATH = os.path.join(BACKEND_ROOT, "data", "knowledge_graph_classified.graphml")
 
 # NODE MAPPING (Query -> Entry Point) 
 def find_concept_node(graph, query):
@@ -48,87 +52,128 @@ def get_pedagogical_subgraph(graph, target_node):
     - We grab 'near_transfer' for breadth testing.
     - We strictly collect resources attached to these specific concepts.
     """
-    context_nodes = set([target_node])
+    context_nodes = {target_node}
     
-    # Helper to standardize edge access for both MultiGraph and DiGraph
-    # makes the edge list from a dict to a list of dicts
-    def get_edges_list(u, v):
-        data = graph.get_edge_data(u, v)
+    # Helper to handle MultiDiGraph vs DiGraph edge data
+    def get_edge_data(u, v):
         if graph.is_multigraph():
-            return data.values() # Returns list of dicts: [{attr...}, {attr...}]
-        return [data] # Returns list of one dict: [{attr...}]
+            return graph[u][v].values() # List of edge dicts
+        return [graph[u][v]] # List containing single edge dict
+    
+    def get_relationship_from_edge(attrs):
+        # First, try the obvious key
+        if "relationship_type" in attrs:
+            return attrs["relationship_type"].upper()
+        
+        # Fallback: Scan ALL values in the edge dictionary
+        # We look for our known keywords.
+        valid_types = {"PREREQUISITE", "COMPONENT", "ANALOGY", "EVIDENCE"}
+        for value in attrs.values():
+            if isinstance(value, str) and value.upper() in valid_types:
+                return value.upper()
+        
+        return "UNKNOWN"
 
     
     # Scaffolding (Find Prerequisites)
     # Walk backwards: Who is a prereq of the target?
     prereqs = []
-    visited_prereqs = set([target_node]) # Cycle prevention
+    visited_parents = {target_node}
     stack = [target_node]
+    found_prereqs_temp = []
 
     while stack:
         current = stack.pop()
         print(f"Current node in prereq search is {current}")
-        
-        # Look at neighbors of the current node in the chain
+
+        # FIX: Use neighbors() because your graph is undirected
         try:
-            for neighbor in graph.neighbors(current):
-                print()
-                if neighbor in visited_prereqs: 
+            for parent in graph.neighbors(current):
+                
+                if parent in visited_parents:
                     continue
 
-                edges_list = get_edges_list(current, neighbor)
-                is_prereq = False
+                edges = get_edge_data(parent, current)
+                is_valid_parent = False
                 
-                # Check all multigraph edges between these two nodes
-                for attrs in edges_list:
-                    # Handle <SEP> if multiple descriptions exist
-                    desc = attrs.get("description", "").lower()
-                    rel = attrs.get("relationship", "").lower() # Check your custom key
+                print(f"Checking {current} <-> {parent}") # Uncomment to see it working
+
+                for attrs in edges:
+                    rtype = get_relationship_from_edge(attrs)
+                    print(rtype)
                     
-                    if "prereq" in desc or "prereq" in rel:
-                        is_prereq = True
+                    # LOGIC:
+                    # Even though the graph is undirected, we treat the relationship semantically.
+                    # If the edge is "PREREQUISITE" or "COMPONENT", we accept it as a parent node.
+                    if rtype in ["PREREQUISITE", "COMPONENT"]:
+                        is_valid_parent = True
                         break
                 
-                if is_prereq:
-                    # Found a prerequisite! 
-                    visited_prereqs.add(neighbor)
-                    prereqs.append(neighbor)      # Add to ordered list
-                    context_nodes.add(neighbor)   # Add to final subgraph
-                    stack.append(neighbor)        # Dig deeper from here
-        except Exception:
-            pass # Handle isolated nodes or graph errors gracefully
+                if is_valid_parent:
+                    print(f"  -> Found Prereq: {parent}")
+                    visited_parents.add(parent)
+                    found_prereqs_temp.append(parent)
+                    context_nodes.add(parent)
+                    stack.append(parent) 
+                    
+        except Exception as e:
+             print(f"Error on node {current}: {e}") 
+             continue
+    
+    # Reverse list so the most fundamental concept comes first (Root -> Leaf)
+    prereqs = found_prereqs_temp[::-1]
 
     # B. Near Transfer (Siblings)
+    # Check Outgoing Analogies (Target -> Sibling)
     siblings = []
     for neighbor in graph.neighbors(target_node):
-        
-        # Skip if node is already in context
         if neighbor in context_nodes: 
             continue
-        
-        # Get edges
-        edges_list = get_edges_list(target_node, neighbor)
-        
-        for attrs in edges_list:
-                desc = attrs.get("description", "").lower()
-                rel = attrs.get("relationship", "").lower()
-                if any(x in desc or x in rel for x in ["transfer", "similar", "contrast"]):
-                    siblings.append(neighbor)
-                    context_nodes.add(neighbor)
+            
+        for attrs in get_edge_data(target_node, neighbor):
+            if get_relationship_from_edge(attrs) == "ANALOGY":
+                siblings.append(neighbor)
+                context_nodes.add(neighbor)
+                break
 
     # C. Resources & Examples (Evidence)
+    current_context = list(context_nodes) # Snapshot to avoid 'Set changed size' error
     evidence = []
-    for node in list(context_nodes):
-        for neighbor in graph.neighbors(node):
-            if neighbor in context_nodes: continue
-            # Check if neighbor is a resource/example node (based on description/type)
-            node_data = graph.nodes[neighbor]
-            node_desc = node_data.get("description", "").lower()
-            node_type = node_data.get("entity_type", "").lower()
-            
-            if "resource" in node_type or "example" in node_type or "url" in node_desc:
-                evidence.append(neighbor)
-                context_nodes.add(neighbor)
+    for node in current_context:
+        try:
+            # FIX: Use neighbors() instead of successors()
+            for neighbor in graph.neighbors(node):
+                
+                # specific check to avoid cycles or duplicates
+                if neighbor in context_nodes: 
+                    continue
+                
+                # Get edge data for NODE <-> NEIGHBOR
+                edges = get_edge_data(node, neighbor)
+                is_evidence = False
+                
+                for attrs in edges:
+                    # Use your robust helper function
+                    rtype = get_relationship_from_edge(attrs)
+                    
+                    # 1. Strict Check: Is the relationship labeled EVIDENCE?
+                    if rtype == "EVIDENCE":
+                        is_evidence = True
+                    
+                    # 2. Heuristic Check: Does the node name look like a chunk?
+                    # (Useful if the edge label is missing/wrong)
+                    elif "chunk" in str(neighbor).lower():
+                        is_evidence = True
+                        
+                    if is_evidence: 
+                        break # Stop checking other edges if one confirms it
+                        
+                if is_evidence:
+                    evidence.append(neighbor)
+                    context_nodes.add(neighbor)
+                    
+        except Exception:
+            continue
         
     print(context_nodes)
     print(prereqs)
@@ -200,8 +245,10 @@ if __name__ == "__main__":
     G = nx.read_graphml(GRAPH_PATH)
     print(f" Loaded {G.number_of_nodes()} concepts.")
 
-    # Hard coded Query
-    user_query = "Explain Automated Reasoning" 
+    # Hard coded Query ######################### ERIC THIS FOR YOU START HERE
+    user_query = "Explain CROSS ENTROPY" 
+    ############################################
+    
     print(f"\n User Query: {user_query}")
 
     # Map to Node
@@ -219,10 +266,9 @@ if __name__ == "__main__":
         
         # Generate
         context_str = format_context(G, all_nodes, prereqs, target_node)
-        print(context_str)
-        # answer = generate_tutor_response(user_query, context_str)
+        answer = generate_tutor_response(user_query, context_str)
         
-        # print("\n Ericas's Answer:\n")
-        # print(answer)
+        print("\n Ericas's Answer:\n")
+        print(answer)
     else:
         print(" Concept not found in Knowledge Graph.")
