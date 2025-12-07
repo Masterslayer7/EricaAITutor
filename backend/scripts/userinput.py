@@ -24,8 +24,11 @@ def find_concept_node(graph, query):
 
     for node in graph.nodes():
         
+        # Gets rid of the quotes around the node
+        node_clean = str(node).upper().replace('"', '').replace("'", "").strip()
+        
         # Simple Jaccard/Overlap matching
-        if node in query_upper or query_upper in node:
+        if node_clean in query_upper or query_upper in node_clean:
             score = len(node) # Prefer longer, more specific matches
             if score > best_score:
                 best_score = score
@@ -47,32 +50,56 @@ def get_pedagogical_subgraph(graph, target_node):
     """
     context_nodes = set([target_node])
     
-    
-    
     # Scaffolding (Find Prerequisites)
     # Walk backwards: Who is a prereq of the target?
     prereqs = []
-    try:
-        # Predecessors in a directed graph (if edges follow flow A->B)
-        # Assuming prereq_of points Pre -> Post. 
-        # We look at 'in_edges' or search manually if undirected.
-        for neighbor in graph.neighbors(target_node):
-            edge_data = graph.get_edge_data(target_node, neighbor)
-            # Check edge descriptions stored by our builder
-            # (NetworkX stores multigraph edges in a dict, we check values)
-            for key, attrs in edge_data.items():
-                desc = attrs.get("description", "").lower()
-                if "prereq" in desc:
-                    prereqs.append(neighbor)
-                    context_nodes.add(neighbor)
-    except Exception:
-        pass # Handle graph variations
+    visited_prereqs = set([target_node]) # Cycle prevention
+    stack = [target_node]
+
+    while stack:
+        current = stack.pop()
+        
+        # Look at neighbors of the current node in the chain
+        try:
+            for neighbor in graph.neighbors(current):
+                if neighbor in visited_prereqs: 
+                    continue
+
+                edge_data = graph.get_edge_data(current, neighbor)
+                is_prereq = False
+                
+                # Check all multigraph edges between these two nodes
+                for key, attrs in edge_data.items():
+                    # Check both 'description' and specific 'relationship' key
+                    desc = attrs.get("description", "").lower()
+                    rel_type = attrs.get("relationship", "").lower()
+                    
+                    # If neighbor is a prerequisite of current
+                    if "prereq" in desc or "prereq" in rel_type:
+                        is_prereq = True
+                        break
+                
+                if is_prereq:
+                    # Found a prerequisite! 
+                    visited_prereqs.add(neighbor)
+                    prereqs.append(neighbor)      # Add to ordered list
+                    context_nodes.add(neighbor)   # Add to final subgraph
+                    stack.append(neighbor)        # Dig deeper from here
+        except Exception:
+            pass # Handle isolated nodes or graph errors gracefully
 
     # B. Near Transfer (Siblings)
     siblings = []
     for neighbor in graph.neighbors(target_node):
-        if neighbor in context_nodes: continue
+        
+        # Skip if node is already in context
+        if neighbor in context_nodes: 
+            continue
+        
+        # Get edges
         edge_data = graph.get_edge_data(target_node, neighbor)
+        
+        
         for key, attrs in edge_data.items():
             desc = attrs.get("description", "").lower()
             if "transfer" in desc or "similar" in desc or "contrast" in desc:
@@ -92,6 +119,11 @@ def get_pedagogical_subgraph(graph, target_node):
             if "resource" in node_type or "example" in node_type or "url" in node_desc:
                 evidence.append(neighbor)
                 context_nodes.add(neighbor)
+        
+    print(context_nodes)
+    print(prereqs)
+    print(siblings)
+    print(evidence)
 
     return context_nodes, prereqs, siblings, evidence
 
