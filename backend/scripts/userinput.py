@@ -3,6 +3,14 @@ import networkx as nx
 import logging
 from dotenv import load_dotenv
 from openai import OpenAI 
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+
+
+
+app = Flask(__name__)
+CORS(app)
 
 # CONFIGURATION 
 load_dotenv()
@@ -236,7 +244,8 @@ def generate_tutor_response(query, context_str):
     return response.choices[0].message.content
 
 # EXECUTION FLOW 
-if __name__ == "__main__":
+@app.route("/ask", methods=["POST"])
+def user_input_flow():
     print(" Loading Knowledge Graph...")
     if not os.path.exists(GRAPH_PATH):
         print(f" Error: Graph not found at {GRAPH_PATH}. Run build script first.")
@@ -246,7 +255,11 @@ if __name__ == "__main__":
     print(f" Loaded {G.number_of_nodes()} concepts.")
 
     # Hard coded Query ######################### ERIC THIS FOR YOU START HERE
-    user_query = "Explain CROSS ENTROPY" 
+    data = request.get_json()
+    if not data or "question" not in data:
+        return jsonify({"error": "Missing 'question' in request body"}), 400
+
+    user_query = data["question"]
     ############################################
     
     print(f"\n User Query: {user_query}")
@@ -270,5 +283,10 @@ if __name__ == "__main__":
         
         print("\n Ericas's Answer:\n")
         print(answer)
+        return answer, 200, {"Content-Type": "text/plain; charset=utf-8"}
     else:
         print(" Concept not found in Knowledge Graph.")
+        return "Concept not found in Knowledge Graph.", 404, {"Content-Type": "text/plain; charset=utf-8"}
+    
+if __name__ == "__main__":
+    app.run(debug=True)
