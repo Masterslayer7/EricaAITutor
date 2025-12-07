@@ -50,6 +50,15 @@ def get_pedagogical_subgraph(graph, target_node):
     """
     context_nodes = set([target_node])
     
+    # Helper to standardize edge access for both MultiGraph and DiGraph
+    # makes the edge list from a dict to a list of dicts
+    def get_edges_list(u, v):
+        data = graph.get_edge_data(u, v)
+        if graph.is_multigraph():
+            return data.values() # Returns list of dicts: [{attr...}, {attr...}]
+        return [data] # Returns list of one dict: [{attr...}]
+
+    
     # Scaffolding (Find Prerequisites)
     # Walk backwards: Who is a prereq of the target?
     prereqs = []
@@ -58,24 +67,25 @@ def get_pedagogical_subgraph(graph, target_node):
 
     while stack:
         current = stack.pop()
+        print(f"Current node in prereq search is {current}")
         
         # Look at neighbors of the current node in the chain
         try:
             for neighbor in graph.neighbors(current):
+                print()
                 if neighbor in visited_prereqs: 
                     continue
 
-                edge_data = graph.get_edge_data(current, neighbor)
+                edges_list = get_edges_list(current, neighbor)
                 is_prereq = False
                 
                 # Check all multigraph edges between these two nodes
-                for key, attrs in edge_data.items():
-                    # Check both 'description' and specific 'relationship' key
+                for attrs in edges_list:
+                    # Handle <SEP> if multiple descriptions exist
                     desc = attrs.get("description", "").lower()
-                    rel_type = attrs.get("relationship", "").lower()
+                    rel = attrs.get("relationship", "").lower() # Check your custom key
                     
-                    # If neighbor is a prerequisite of current
-                    if "prereq" in desc or "prereq" in rel_type:
+                    if "prereq" in desc or "prereq" in rel:
                         is_prereq = True
                         break
                 
@@ -97,14 +107,14 @@ def get_pedagogical_subgraph(graph, target_node):
             continue
         
         # Get edges
-        edge_data = graph.get_edge_data(target_node, neighbor)
+        edges_list = get_edges_list(target_node, neighbor)
         
-        
-        for key, attrs in edge_data.items():
-            desc = attrs.get("description", "").lower()
-            if "transfer" in desc or "similar" in desc or "contrast" in desc:
-                siblings.append(neighbor)
-                context_nodes.add(neighbor)
+        for attrs in edges_list:
+                desc = attrs.get("description", "").lower()
+                rel = attrs.get("relationship", "").lower()
+                if any(x in desc or x in rel for x in ["transfer", "similar", "contrast"]):
+                    siblings.append(neighbor)
+                    context_nodes.add(neighbor)
 
     # C. Resources & Examples (Evidence)
     evidence = []
@@ -209,9 +219,10 @@ if __name__ == "__main__":
         
         # Generate
         context_str = format_context(G, all_nodes, prereqs, target_node)
-        answer = generate_tutor_response(user_query, context_str)
+        print(context_str)
+        # answer = generate_tutor_response(user_query, context_str)
         
-        print("\n Ericas's Answer:\n")
-        print(answer)
+        # print("\n Ericas's Answer:\n")
+        # print(answer)
     else:
         print(" Concept not found in Knowledge Graph.")
