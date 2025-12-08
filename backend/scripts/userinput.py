@@ -255,13 +255,12 @@ def user_input_flow():
     G = nx.read_graphml(GRAPH_PATH)
     print(f" Loaded {G.number_of_nodes()} concepts.")
 
-    # Hard coded Query ######################### ERIC THIS FOR YOU START HERE
+    
     data = request.get_json()
     if not data or "question" not in data:
         return jsonify({"error": "Missing 'question' in request body"}), 400
 
     user_query = data["question"]
-    ############################################
     
     print(f"\n User Query: {user_query}")
 
