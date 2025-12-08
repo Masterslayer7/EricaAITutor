@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import Header from "./components/Header";
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -29,31 +30,46 @@ function App() {
   };
 
   return (
-    <div style={{ maxWidth: "600px", margin: "50px auto", fontFamily: "sans-serif" }}>
-      <h1>Erica AI Tutor</h1>
-      <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask Erica a question..."
-          style={{ width: "100%", padding: "10px", fontSize: "16px" }}
-        />
-        <button type="submit" style={{ marginTop: "10px", padding: "10px 20px", fontSize: "16px" }}>
-          Ask
-        </button>
-      </form>
+    <div style={{ backgroundColor: "black", minHeight: "100vh", color: "white" }}>
+      
+      <nav> 
+        <a href="https://github.com/Masterslayer7/EricaAITutor" target="_blank" rel="noopener noreferrer" style={{ color: "white", textDecoration: "underline", padding: "10px", display: "inline-block" }} onMouseOver={(e) => (e.target.style.backgroundColor = "#333")} onMouseOut={(e) => (e.target.style.backgroundColor = "#1f1f1f")}>
+          Erica AI Tutor - GitHub
+        </a>
+      </nav>
 
-      {loading && <p>Loading answer...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {answer && (
-        <div style={{ background: "#f2f2f2", padding: "15px", borderRadius: "5px" }}>
-          <h3>Erica's Answer:</h3>
-          <div className="text-gray-700 whitespace-pre-wrap">
-            {answer}
+      {/* Centered content */}
+      <div style={{ maxWidth: "600px", margin: "0 auto", paddingTop: "20px" }}>
+        <h1>Erica AI Tutor</h1>
+        <h3>By: Yug Patel & Eric Zhang</h3>
+
+        <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask Erica a question..."
+              style={{ flex: 1, padding: "10px", fontSize: "16px" }}
+            />
+            <button
+              type="submit"
+              style={{ padding: "10px 20px", fontSize: "16px" }}
+            >
+              Ask
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+
+        {loading && <p>Loading answer...</p>}
+        {error && <p style={{ color: "red" }}>{error}</p>}
+        {answer && (
+          <div
+            className="prose prose-lg max-w-none bg-white text-black shadow-md rounded-lg p-6"
+            dangerouslySetInnerHTML={{ __html: answer }}
+          />
+        )}
+      </div>
     </div>
   );
 }

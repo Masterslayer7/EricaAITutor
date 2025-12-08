@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import OpenAI 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from markdown import markdown
 
 
 
@@ -283,7 +284,7 @@ def user_input_flow():
         
         print("\n Ericas's Answer:\n")
         print(answer)
-        return answer, 200, {"Content-Type": "text/plain; charset=utf-8"}
+        return markdown(answer), 200, {"Content-Type": "text/plain; charset=utf-8"}
     else:
         print(" Concept not found in Knowledge Graph.")
         return "Concept not found in Knowledge Graph.", 404, {"Content-Type": "text/plain; charset=utf-8"}
