@@ -30,7 +30,6 @@ const useMarked = () => {
     document.body.appendChild(script);
 
     return () => {
-      // Clean up script if needed, though usually fine to leave for single page apps
     };
   }, []);
 
@@ -67,7 +66,7 @@ const MarkdownMessage = ({ content }: { content: string }) => {
   );
 };
 
-// 2. Main App Component
+// Main App Component
 export default function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -103,19 +102,17 @@ export default function App() {
     setInput('');
     setIsTyping(true);
 
-    // MOCK RESPONSE - Replace this with your actual API call to Erica
     try {
       const response = await axios.post(
         "http://localhost:5000/ask",
-        { question: currentQuestion }, // Payload matches your old code
+        { question: currentQuestion }, 
         { responseType: "text" }
       );
 
-      // 3. Add Assistant Response
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.data, // Using the data directly as you requested
+        content: response.data, 
         timestamp: Date.now(),
       };
       
@@ -124,7 +121,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
       
-      // 4. Handle Errors Gracefully in Chat
+      // Handle Errors Gracefully in Chat
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
