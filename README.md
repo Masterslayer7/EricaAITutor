@@ -1,4 +1,4 @@
-# Erica: The AI Tutor
+# Erica: The AI Tutor By Yug Patel and Eric Zhang
 
 ### How to Run Locally
 Prerequisites
